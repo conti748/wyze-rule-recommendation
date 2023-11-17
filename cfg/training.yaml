@@ -1,0 +1,8 @@
+dataset:
+  rule_count_frequency: 20
+training:
+  split:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+  batch_size: 1024
