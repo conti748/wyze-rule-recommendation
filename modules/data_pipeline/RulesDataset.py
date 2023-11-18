@@ -1,4 +1,3 @@
-import random
 import torch
 from datasets import load_dataset
 from tqdm import tqdm
@@ -7,7 +6,7 @@ import numpy as np
 from torch_geometric.data import Data
 
 
-class RuleDataset:
+class RulesDataset:
     def __init__(self, mode='train',
                  config_path="./cfg/training.yaml"):
         self.mode = mode
@@ -198,9 +197,3 @@ class RuleDataset:
         self._create_dataset_dict(user_dicts)
         if self.mode == 'train':
             self._filter_single_rule()
-
-
-if __name__ == '__main__':
-    rule_dataset = RuleDataset()
-    rule_dataset.split_dataset()
-    graph_dataset = rule_dataset.create_graph_dataset(rule_dataset.dataset)

@@ -61,18 +61,3 @@ class NodeTypeEmbedding(nn.Module):
         self.embedding = nn.Embedding(num_node_types, embedding_dim)
     def forward(self, node_type_indices):
         return self.embedding(node_type_indices)
-
-if __name__ == '__main__':
-    model = LinkPredictor()
-    num_params_per_layer = {}
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            num_params = torch.prod(torch.tensor(param.size())).item()
-            num_params_per_layer[name] = num_params
-
-    # Print the number of parameters per layer
-    for name, num_params in num_params_per_layer.items():
-        print(f'Layer: {name}, Number of Parameters: {num_params}')
-
-    print(f"\nTotal number of parameters: {np.sum(np.array(list(num_params_per_layer.values())))}")
-

@@ -1,5 +1,4 @@
 import torch
-from modules.data_pipeline.RulesDataset import RuleDataset
 import yaml
 
 
@@ -24,17 +23,3 @@ class GraphDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.graph_dict[idx]
 
-
-
-if __name__ == '__main__':
-    config = get_config("./cfg/training.yaml")
-    rule_dataset = RuleDataset()
-    rule_train, rule_val, rule_test = rule_dataset.split_dataset(rule_dataset.dataset,
-                               config['training']['split']['train'],
-                               config['training']['split']['val'])
-    graph_dict_train = rule_dataset.create_graph_dataset(rule_train)
-    graph_dict_val= rule_dataset.create_graph_dataset(rule_val)
-    graph_dict_test = rule_dataset.create_graph_dataset(rule_test)
-    graph_generator = GraphDataset(rule_train, graph_dict_train)
-    graph_generator_val = GraphDataset(rule_val, graph_dict_val)
-    graph_generator_test = GraphDataset(rule_test, graph_dict_test)

@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 data/downloads
 data/wyzelabs___rule_recommendation
+models/*.ckpt
 .Python
 build/
 develop-eggs/

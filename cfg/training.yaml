@@ -6,3 +6,8 @@ training:
     val: 0.1
     test: 0.1
   batch_size: 1024
+  learning_rate_schedule:
+    start_value: 0.001
+    factor: 0.5
+    patience: 4
+  num_epochs: 100
