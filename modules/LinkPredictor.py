@@ -61,3 +61,4 @@ class NodeTypeEmbedding(nn.Module):
         self.embedding = nn.Embedding(num_node_types, embedding_dim)
     def forward(self, node_type_indices):
         return self.embedding(node_type_indices)
+

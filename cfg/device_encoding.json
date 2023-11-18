@@ -1,0 +1,18 @@
+{
+  "ContactSensor": 0,
+  "MotionSensor": 1,
+  "Camera": 2,
+  "Lock": 3,
+  "Light": 4,
+  "Plug": 5,
+  "LightStrip": 6,
+  "Switch": 7,
+  "RobotVacuum": 8,
+  "MeshLight": 9,
+  "OutdoorPlug": 10,
+  "ClimateSensor": 11,
+  "LeakSensor": 12,
+  "Thermostat": 13,
+  "Irrigation": 14,
+  "Cloud": 15
+}

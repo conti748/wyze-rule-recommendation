@@ -4,13 +4,16 @@ from tqdm import tqdm
 import yaml
 import numpy as np
 from torch_geometric.data import Data
+import json
 
 
 class RulesDataset:
     def __init__(self, mode='train',
-                 config_path="./cfg/training.yaml"):
+                 config_path="./cfg/training.yaml",
+                 test_set_private=False):
         self.mode = mode
-        self._get_dataset(self.mode)
+        self.test_set_private = test_set_private
+        self._get_dataset()
         self.cfg = self._get_config(config_path)
         self.prepare_graph_dataset()
 
@@ -23,15 +26,32 @@ class RulesDataset:
             cfg = yaml.load(f, Loader=yaml.FullLoader)
         return cfg
 
-    def _get_dataset(self, mode: str):
+    def _get_dataset(self):
         """Get the device and rule pd.DataFrame"""
         print("Start loading data")
-        self.device_dataset = load_dataset("wyzelabs/RuleRecommendation",
-                                           data_files=f"{mode}_device.csv",
-                                           cache_dir=r"./data/")
-        self.rule_dataset = load_dataset("wyzelabs/RuleRecommendation",
-                                         data_files=f"{mode}_rule.csv",
-                                         cache_dir=r"./data/")
+        if self.mode == 'train':
+            self.device_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                               data_files=f"{self.mode}_device.csv",
+                                               cache_dir=r"./data/")
+            self.rule_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                             data_files=f"{self.mode}_rule.csv",
+                                             cache_dir=r"./data/")
+        elif self.mode == 'test':
+            if not self.test_set_private:
+                self.device_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                                   data_files=f"{self.mode}_device.csv",
+                                                   cache_dir=r"./data/")
+                self.rule_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                                 data_files=f"{self.mode}_rule.csv",
+                                                 cache_dir=r"./data/")
+            else:
+                self.device_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                                   data_files=f"{self.mode}_device_private.csv",
+                                                   cache_dir=r"./data/")
+                self.rule_dataset = load_dataset("wyzelabs/RuleRecommendation",
+                                                 data_files=f"{self.mode}_rule_private.csv",
+                                                 cache_dir=r"./data/")
+
         print("Data loaded")
         self.df_device = self.device_dataset['train'].to_pandas()
         self.df_rule = self.rule_dataset['train'].to_pandas()
@@ -50,22 +70,36 @@ class RulesDataset:
 
         :return:
         """
-        value_counts_rule = self.df_rule['rule_type'].value_counts()
-        print(f"Filtering rules with fewer than {self.cfg['dataset']['rule_count_frequency']} occurencies")
-        value_counts_rule = value_counts_rule[value_counts_rule >= self.cfg['dataset']['rule_count_frequency']]
-        self.rule_encoding = {}
-        counter = 0
-        for k, v in value_counts_rule.items():
-            self.rule_encoding[(int(k[0]), int(k[1]))] = counter
-            counter += 1
+        if self.mode == 'train':
+            value_counts_rule = self.df_rule['rule_type'].value_counts()
+            print(f"Filtering rules with fewer than {self.cfg['dataset']['rule_count_frequency']} occurencies")
+            value_counts_rule = value_counts_rule[value_counts_rule >= self.cfg['dataset']['rule_count_frequency']]
+            self.rule_encoding = {}
+            counter = 0
+            for k, v in value_counts_rule.items():
+                self.rule_encoding[(int(k[0]), int(k[1]))] = counter
+                counter += 1
+            with open('./cfg/rule_encoding.json', 'w') as fp:
+                rule_encoding_dump = {str(k):v for k, v in self.rule_encoding.items()}
+                json.dump(rule_encoding_dump, fp, indent=2)
+        else:
+            with open('./cfg/rule_encoding.json', 'r') as fp:
+                rule_encoding_dump = json.load(fp)
+                self.rule_encoding = {eval(k): v for k, v in rule_encoding_dump.items()}
 
     def _get_device_mapping(self):
         """
 
         :return:
         """
-        self.device_model2id = {dev: i for i, dev in enumerate(self.df_device.device_model.unique())}
-        self.device_model2id['Cloud'] = 15
+        if self.mode == 'train':
+            self.device_model2id = {dev: i for i, dev in enumerate(self.df_device.device_model.unique())}
+            self.device_model2id['Cloud'] = 15
+            with open('./cfg/device_encoding.json', 'w') as fp:
+                json.dump(self.device_model2id, fp, indent=2)
+        else:
+            with open('./cfg/device_encoding.json', 'r') as fp:
+                self.device_model2id = json.load(fp)
 
     def _get_onehot_device_mapping(self):
         """
@@ -109,9 +143,9 @@ class RulesDataset:
                         'action_id': rule_item['action_id'],
                         'action_device_id': rule_item['action_device_id']}
         # create a mapping device to node-id
-        userid2nodeid = {}
-        for user_id, v in tqdm(user_device_dicts.items()):
-            user_device_dicts[user_id]["userid2nodeid"] = {id: i for i, id in enumerate(list(v['devices_dict']))}
+        self.node_mapping = {}
+        for user_id, v in user_device_dicts.items():
+            self.node_mapping[user_id] = {id: i for i, id in enumerate(list(v['devices_dict']))}
         return user_device_dicts
     def _create_dataset_dict(self, user_dicts):
         """
@@ -131,8 +165,8 @@ class RulesDataset:
                 for k, v in user_dicts[user_id]['rules'].items():
                     nodes = [[self.device_onehot_mapping[n]] for n in user_dicts[user_id]['devices_dict'].values()]
                     nodes_tuple = tuple([n for n in user_dicts[user_id]['devices_dict'].values()])
-                    senders.append(user_dicts[user_id]["userid2nodeid"][v['trigger_device_id']])
-                    receivers.append(user_dicts[user_id]["userid2nodeid"][v['action_device_id']])
+                    senders.append(self.node_mapping[user_id][v['trigger_device_id']])
+                    receivers.append(self.node_mapping[user_id][v['action_device_id']])
                     edges_gt.append([self.rule_encoding[(v['trigger_state_id'], v['action_id'])]])
                     edges.append((v['trigger_state_id'], v['action_id']))
                 data_dict = {'globals': 0,
