@@ -40,7 +40,7 @@ def decode_nodes(top_results, node_mapping, rule_onehot_decode):
     results.append((nodeidx_dict[top_item[0][0]], nodeidx_dict[top_item[0][1]], rule_onehot_decode[top_item[1]], top_item[2].detach().numpy()) )
   return results
 
-def dump_results(results_dict, file_name = "./results/results_private.csv"):
+def dump_results(results_dict, file_name = "./results/results_public.csv"):
     user_ids = []
     rules = []
     ranks = []
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     print('Model loaded')
 
     # Load test-set
-    rule_dataset = RulesDataset(mode='test', test_set_private=True)
+    rule_dataset = RulesDataset(mode='test', test_set_private=False)
     graph_dict_test = rule_dataset.create_graph_dataset(rule_dataset.dataset)
     graph_generator_test = GraphDataset(rule_dataset.dataset, graph_dict_test)
     print(f"Number of users: {len(graph_dict_test)}")
