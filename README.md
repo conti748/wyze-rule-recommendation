@@ -43,16 +43,25 @@ whereas the baseline only reached approximately 0.25.
 
 ## How to install
 Install the dependencies in a virtual environment
-```
+``` bash
 pip install -r requirements.tx
 ```
 
 
 ## Training
-You can train a new model by.......
+To train a new model, execute the ```train.py``` script. 
+You can customize the training configuration 
+by modifying the settings in the ```cfg/training.yaml``` file.
+
+The model used in the competition is provided in ```models\best_model.ckpt```.
+
 
 ## Test
+To test a model, execute the ```train.py``` script. 
 
+``` bash
+python test.py --mode=private --model_path="./models/best_model.ckpt"
+```
 
 ## Approach
 
