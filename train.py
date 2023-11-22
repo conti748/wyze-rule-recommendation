@@ -12,6 +12,7 @@ from modules.sampling import positive_sampling, construct_negative_graph
 from tqdm import tqdm
 import random
 
+
 def get_config(file_path: str) -> dict:
     """"
     Read the config file
@@ -20,25 +21,35 @@ def get_config(file_path: str) -> dict:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
     return cfg
 
+
 # Define the loss function
 def compute_loss(out_pos, out_neg, gt_pos, gt_neg):
-  pos = torch.gather(out_pos, 1, gt_pos)
-  neg = torch.gather(out_neg, 1, gt_neg)
-  loss = - torch.log(pos + 1e-15).sum() - torch.log(1-neg + 1e-15).sum()
-  loss = loss/(len(pos) + len(neg))
-  return loss
+    """
+
+    :param out_pos: model output for the graph with positive sampling
+    :param out_neg: model output for the graph with negative sampling
+    :param gt_pos: ground-truth for positive sampling
+    :param gt_neg: ground-truth for negative sampling
+    :return: loss value
+    """
+    pos = torch.gather(out_pos, 1, gt_pos)
+    neg = torch.gather(out_neg, 1, gt_neg)
+    loss = - torch.log(pos + 1e-15).sum() - torch.log(1 - neg + 1e-15).sum()
+    loss = loss / (len(pos) + len(neg))
+    return loss
 
 
 if __name__ == '__main__':
+    # read the config file with training parameters
     config = get_config("./cfg/training.yaml")
 
-    # set seed
+    # set seeds
     np.random.seed(0)
     random.seed(0)
     torch.manual_seed(0)
 
     # get the rule-dataset
-    rule_dataset = RulesDataset()
+    rule_dataset = RulesDataset(config)
     # split the data
     rule_train, rule_val, rule_test = rule_dataset.split_dataset(rule_dataset.dataset,
                                                                  config['training']['split']['train'],
@@ -51,9 +62,11 @@ if __name__ == '__main__':
     graph_generator_val = GraphDataset(rule_val, graph_dict_val)
     graph_generator_test = GraphDataset(rule_test, graph_dict_test)
 
+    # crate torch DataLoader
     train_loader = DataLoader(graph_generator, batch_size=config['training']['batch_size'], shuffle=True)
     val_loader = DataLoader(graph_generator_val, batch_size=512, shuffle=False)
 
+    # Define the LinkPredictor model
     model = LinkPredictor()
     num_params_per_layer = {}
     for name, param in model.named_parameters():

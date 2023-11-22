@@ -37,6 +37,10 @@ defined as
 ![img.png](docs/images/metrics.png)
 
 
+In the competition, the presented approach attained an MRR close to 0.45, 
+whereas the baseline only reached approximately 0.25.
+
+
 ## How to install
 Install the dependencies in a virtual environment
 ```
@@ -52,22 +56,42 @@ You can train a new model by.......
 
 ## Approach
 
+This section discuss the details of the approach used.
+
+### Problem modelling
 The problem has been framed as a link prediction task, wherein a graph is constructed for each user. The graph structure is defined as follows:
 
-Each device serves as a node, with each node characterized by a node feature representing the device model (e.g., Camera, Cloud) using one-hot encoding.
-Every rule is depicted as a directed edge connecting the trigger device to the action device. The edges may vary in type based on the trigger state and action state, with the dataset containing 45 trigger states and 47 actions.
-For each graph, the model incorporates the following components:
+- Each device serves as a node, with each node characterized by a node feature representing the device model (e.g., Camera, Cloud) using one-hot encoding. 
+- Every rule is translated in a directed edge connecting the trigger device to the action device. The edges may vary in type based on the trigger state and action state, with the dataset containing 45 trigger states and 47 actions.
 
-Embedding layers are utilized for both trigger state and action for each edge.
-Node types are one-hot encoded.
-Edge features are aggregated per node and concatenated to node features.
-Two SageConv layers are applied to the aggregated features.
-This component acts as a node embedding, providing an embedding vector for each node. At this stage, a set of links is considered for prediction. The prediction process involves:
+### Model Architecture
+For each graph, the model incorporates the following in a first component:
 
-Concatenating the embedding vector for nodes in the edge.
-Applying a classification head with a sigmoid activation function to predict the edge probability.
+- Embedding layers are utilized for both trigger state and action for each edge.
+- Node types are one-hot encoded.
+- Edge features are aggregated per node and concatenated to node features.
+- Two SageConv layers are applied to the concatenated features.
 
+This component acts as a node embedding, 
+providing an embedding vector for each node. 
+At this stage, a set of links is considered for prediction. The prediction process involves:
 
+- Concatenating the embedding vector for nodes in the edge.
+- Applying a classification head with a sigmoid activation function to predict the edge probability.
+
+### Training approach
+
+The entire network is trained using a positive and negative sampling
+from the dataset, similarly to the base-line approach in 
+[FedRule](https://arxiv.org/abs/2211.06812). However, the code has been
+re-implemented in pytorch-geometric. In details:
+In details:
+
+- Positive sampling: example pairs are generated with a leave-one-out approach;
+- Negative sampling: given the graph structure, an unseen edge is generated.
+
+The loss function, as in the FedRule paper, consists in a binary cross entropy 
+between positive and negative examples.
 
 
 

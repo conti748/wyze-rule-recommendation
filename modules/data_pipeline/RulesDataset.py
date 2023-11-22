@@ -1,34 +1,24 @@
 import torch
 from datasets import load_dataset
 from tqdm import tqdm
-import yaml
 import numpy as np
 from torch_geometric.data import Data
 import json
 
 
 class RulesDataset:
-    def __init__(self, mode='train',
-                 config_path="./cfg/training.yaml",
+    def __init__(self, cfg, mode='train',
                  test_set_private=False):
         self.mode = mode
         self.test_set_private = test_set_private
+        self.cfg = cfg
+        # load the dataset splits
         self._get_dataset()
-        self.cfg = self._get_config(config_path)
         self.prepare_graph_dataset()
-
-    @staticmethod
-    def _get_config(file_path: str) -> dict:
-        """"
-        Read the config file
-        """
-        with open(file_path) as f:
-            cfg = yaml.load(f, Loader=yaml.FullLoader)
-        return cfg
 
     def _get_dataset(self):
         """Get the device and rule pd.DataFrame"""
-        print("Start loading data")
+        print("Start loading data...")
         if self.mode == 'train':
             self.device_dataset = load_dataset("wyzelabs/RuleRecommendation",
                                                data_files=f"{self.mode}_device.csv",
@@ -60,19 +50,18 @@ class RulesDataset:
 
     def _prepare_ruletype(self):
         """
-
-        :return:
+        Insert a column with the rule type encoded as a string with triggerstate_action
         """
         self.df_rule['rule_type'] = self.df_rule['rule'].apply(lambda x: x.split('_')[1:3])
 
     def _get_rule_encoding(self):
         """
-
-        :return:
+        Get the encoding for rules.
+        This function filters out the rule_type with less than self.cfg['dataset']['rule_count_frequency'] occurrences.
         """
         if self.mode == 'train':
             value_counts_rule = self.df_rule['rule_type'].value_counts()
-            print(f"Filtering rules with fewer than {self.cfg['dataset']['rule_count_frequency']} occurencies")
+            print(f"Filtering rules with fewer than {self.cfg['dataset']['rule_count_frequency']} occurrences")
             value_counts_rule = value_counts_rule[value_counts_rule >= self.cfg['dataset']['rule_count_frequency']]
             self.rule_encoding = {}
             counter = 0
@@ -89,8 +78,7 @@ class RulesDataset:
 
     def _get_device_mapping(self):
         """
-
-        :return:
+        Get a dictionary to map device to a numerical encoding
         """
         if self.mode == 'train':
             self.device_model2id = {dev: i for i, dev in enumerate(self.df_device.device_model.unique())}
@@ -103,8 +91,7 @@ class RulesDataset:
 
     def _get_onehot_device_mapping(self):
         """
-
-        :return:
+        Define a dictionary mapping from device to onehot encoding
         """
         num_values = len(self.device_model2id)
         self.device_onehot_mapping = {}
@@ -125,8 +112,8 @@ class RulesDataset:
 
     def _get_user_dicts(self):
         """
-
-        :return:
+        Aggregate rules per user and collect info to build graphs
+        :return: user_device_dicts, a dict containing variables to each user used to build the graph
         """
         print("Aggregating devices by user")
         user_device_dicts = self.df_device.groupby('user_id').apply(self._create_device_dict).to_dict()
@@ -149,9 +136,8 @@ class RulesDataset:
         return user_device_dicts
     def _create_dataset_dict(self, user_dicts):
         """
-        -
-        :param user_dicts:
-        :return:
+        Starting from info about users, evaluate a dictionary with nodes and edges
+        :param user_dicts: dictionary with info about each user
         """
         # Create the dataset identifying nodes and edges for each user
         self.dataset = {}
@@ -185,6 +171,11 @@ class RulesDataset:
         print(f"Error for {len(error_list)} users, skipping.")
 
     def create_graph_dataset(self, dataset: dict) -> dict:
+        """
+        builds the graph dataset with torch_geometric.data.Data
+        :param dataset: input dataset with user graphs
+        :return: a dict containing graphs as pytorch-geometric Data
+        """
         graph_dict_train = {}
         for idx in tqdm(dataset.keys()):
             senders = [dataset[idx]['senders'][s] for s in range(0, len(dataset[idx]['senders']))]
@@ -198,8 +189,7 @@ class RulesDataset:
         return graph_dict_train
     def _filter_single_rule(self):
         """
-
-        :return:
+        Filter users with less than 2 edges.
         """
         # Filter out users with just one rule
         print("Total users before filtering:", len(self.dataset))
@@ -208,6 +198,13 @@ class RulesDataset:
 
     @staticmethod
     def split_dataset(graph_dataset, train_ratio, val_ratio):
+        """
+        split the data in train/val/test
+        :param graph_dataset: graph dataset
+        :param train_ratio: split ratio for training
+        :param val_ratio: split ratio for validation
+        :return: train_dict, val_dict, test_dict
+        """
         keys = list(graph_dataset.keys())
         train_split = int(len(keys) * train_ratio)
         val_split = int(len(keys) * val_ratio)
@@ -220,8 +217,7 @@ class RulesDataset:
         return train_dict, val_dict, test_dict
     def prepare_graph_dataset(self):
         """
-
-        :return:
+        Staring from the device/rule data, build the graph dataset
         """
         self._prepare_ruletype()
         self._get_rule_encoding()
