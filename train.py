@@ -1,25 +1,16 @@
-import yaml
 import torch
-from modules.data_pipeline.RulesDataset import RulesDataset
-from modules.data_pipeline.GraphDataset import GraphDataset
 from torch_geometric.loader import DataLoader
-from modules.LinkPredictor import LinkPredictor
 import numpy as np
 import copy
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from modules.sampling import positive_sampling, construct_negative_graph
 from tqdm import tqdm
 import random
-
-
-def get_config(file_path: str) -> dict:
-    """"
-    Read the config file
-    """
-    with open(file_path) as f:
-        cfg = yaml.load(f, Loader=yaml.FullLoader)
-    return cfg
+from modules.utils.utils import get_config
+from modules.utils.sampling import positive_sampling, construct_negative_graph
+from modules.data_pipeline.RulesDataset import RulesDataset
+from modules.data_pipeline.GraphDataset import GraphDataset
+from modules.LinkPredictor import LinkPredictor
 
 
 # Define the loss function
@@ -34,9 +25,9 @@ def compute_loss(out_pos, out_neg, gt_pos, gt_neg):
     """
     pos = torch.gather(out_pos, 1, gt_pos)
     neg = torch.gather(out_neg, 1, gt_neg)
-    loss = - torch.log(pos + 1e-15).sum() - torch.log(1 - neg + 1e-15).sum()
-    loss = loss / (len(pos) + len(neg))
-    return loss
+    loss_bce = - torch.log(pos + 1e-15).sum() - torch.log(1 - neg + 1e-15).sum()
+    loss_bce = loss_bce / (len(pos) + len(neg))
+    return loss_bce
 
 
 if __name__ == '__main__':
@@ -100,9 +91,9 @@ if __name__ == '__main__':
             g_input, g_gt = positive_sampling(inputs, inputs.batch, rule_dataset.rule_encoding)
             negative_graph = construct_negative_graph(inputs, inputs.batch, rule_dataset.rule_encoding)
             out = model(inputs.x.type(torch.FloatTensor), g_input.edge_index, g_gt.edge_index, g_input.edge_attr)
-            out_neg = model(inputs.x.type(torch.FloatTensor), g_input.edge_index, negative_graph.edge_index,
+            out_negative = model(inputs.x.type(torch.FloatTensor), g_input.edge_index, negative_graph.edge_index,
                             g_input.edge_attr)
-            loss = compute_loss(out, out_neg, g_gt.edge_attr, negative_graph.edge_attr)
+            loss = compute_loss(out, out_negative, g_gt.edge_attr, negative_graph.edge_attr)
             loss.backward()
 
             # Update the model's parameters
@@ -117,7 +108,8 @@ if __name__ == '__main__':
         # Print the average training loss for this epoch
         print(f"Epoch {epoch + 1}/{num_epochs}, Average Loss: {running_loss / len(train_loader)}")
 
-        model.eval()  # Set the model to evaluation mode
+        # Set the model to evaluation mode
+        model.eval()
         val_loss = 0.0
         num_val_batches = len(val_loader)
 
@@ -127,9 +119,9 @@ if __name__ == '__main__':
                 negative_graph = construct_negative_graph(val_inputs, val_inputs.batch, rule_dataset.rule_encoding)
                 out = model(val_inputs.x.type(torch.FloatTensor), g_input.edge_index, g_gt.edge_index,
                             g_input.edge_attr)
-                out_neg = model(val_inputs.x.type(torch.FloatTensor), g_input.edge_index, negative_graph.edge_index,
+                out_negative = model(val_inputs.x.type(torch.FloatTensor), g_input.edge_index, negative_graph.edge_index,
                                 g_input.edge_attr)
-                loss = compute_loss(out, out_neg, g_gt.edge_attr, negative_graph.edge_attr)
+                loss = compute_loss(out, out_negative, g_gt.edge_attr, negative_graph.edge_attr)
                 val_loss += loss.item()
 
         # Calculate and print the average validation loss for this epoch

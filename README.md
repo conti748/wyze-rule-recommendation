@@ -79,6 +79,11 @@ At this stage, a set of links is considered for prediction. The prediction proce
 - Concatenating the embedding vector for nodes in the edge.
 - Applying a classification head with a sigmoid activation function to predict the edge probability.
 
+At inference time, supposing to have a graph with n_nodes, the output 
+will be a (n_nodes * n_nodes, num_edges_categories) tensor containing
+the score for each possible edge. 
+The scores are sorted and the top-50 scores are selected.
+
 ### Training approach
 
 The entire network is trained using a positive and negative sampling

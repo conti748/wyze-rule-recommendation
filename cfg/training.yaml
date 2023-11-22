@@ -10,4 +10,4 @@ training:
     start_value: 0.001
     factor: 0.5
     patience: 4
-  num_epochs: 100
+  num_epochs: 80

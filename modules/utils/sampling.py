@@ -6,11 +6,12 @@ import torch_geometric
 
 def positive_sampling(data, batch_vector, rule_encoding):
     """
-
+    Generates positive samples for training with a leave-one-out approach.
+    Leaves out an edge for each graph in the batch.
     :param data: Input batch of graphs
     :param batch_vector: batch mask
     :param rule_encoding: dictionary that maps rule to encoding
-    :return: g_input graph with leave-one-out, g_gt graph with the single edge
+    :return: g_input graph without the selected edges, g_gt graph with leave-one-out edges
     """
     unique_batches = torch.unique(batch_vector)
     selected_src = []
@@ -64,7 +65,7 @@ def positive_sampling(data, batch_vector, rule_encoding):
 
 def construct_negative_graph(graph, batch_vector, rule_encoding):
     """
-
+    Generates a negative graph sampling a negative edge for each graph in the batch
     :param graph: input batch of graphs
     :param batch_vector: batch mapping
     :param rule_encoding: rule_encoding: dictionary that maps rule to encoding

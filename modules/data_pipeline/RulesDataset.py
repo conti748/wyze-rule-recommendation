@@ -7,8 +7,10 @@ import json
 
 
 class RulesDataset:
-    def __init__(self, cfg, mode='train',
+    def __init__(self, cfg=None, mode='train',
                  test_set_private=False):
+        if cfg is None:
+            cfg = {}
         self.mode = mode
         self.test_set_private = test_set_private
         self.cfg = cfg
