@@ -30,6 +30,7 @@ def dump_results(results, file_name):
         writer.writerow(['user_id', 'rule', 'rank'])
         for user_id, score, rank in zip(user_ids, rules, ranks):
             writer.writerow([user_id, score, rank])
+    print(f"Results written in {file_name}")
 
 
 if __name__ == '__main__':
