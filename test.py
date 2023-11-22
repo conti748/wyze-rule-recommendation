@@ -37,27 +37,28 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Script to test the model on public/private')
     parser.add_argument('--mode', choices=['public', 'private'], default='public', help='Specify the mode (public or '
                                                                                      'private)')
-    parser.add_argument('--model_name', type=str, default="./models/best_model.ckpt",
+    parser.add_argument('--model_path', type=str, default="./models/best_model.ckpt",
                         help='Specify the model name as a string')
     # Parse the command-line arguments
     args = parser.parse_args()
     mode = args.mode
-    model_name = args.model_name
+    model_path = args.model_path
+    model_name = model_path.split('/')[-1].split('.')[0]
 
     # Your script logic based on the selected mode
     if mode == 'public':
         print('Public mode selected')
         test_set_private = False
-        output_filename ="./results/results_public.csv"
+        output_filename = f"./results/results_public_{model_name}.csv"
     elif mode == 'private':
         print('Private mode selected')
         test_set_private = True
-        output_filename = "./results/results_private.csv"
+        output_filename = f"./results/results_private_{model_name}.csv"
 
     # Load the best model
-    print(f'Loading model {model_name}')
+    print(f'Loading model {model_path}')
     model = LinkPredictor()
-    checkpoint = torch.load(model_name)
+    checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint)
     print('Model loaded')
     # Load test-set
@@ -89,4 +90,4 @@ if __name__ == '__main__':
                                                                            out, rule_dataset.rule_encoding,
                                                                            rule_dataset.node_mapping[
                                                                                graph_generator_test.userid2idx[idx]])
-    dump_results(results_dict)
+    dump_results(results_dict, output_filename)

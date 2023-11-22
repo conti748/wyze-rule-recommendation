@@ -1,3 +1,5 @@
+import itertools
+
 import torch
 from torch_geometric.loader import DataLoader
 import numpy as np
@@ -6,7 +8,10 @@ from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 import random
-from modules.utils.utils import get_config
+from torch_geometric.data import Data
+
+from modules.utils.decode_results import decode_output
+from modules.utils.utils import get_config, find_rank
 from modules.utils.sampling import positive_sampling, construct_negative_graph
 from modules.data_pipeline.RulesDataset import RulesDataset
 from modules.data_pipeline.GraphDataset import GraphDataset
@@ -131,8 +136,52 @@ if __name__ == '__main__':
         if average_val_loss < best_val_loss:
             print('Saving model..')
             best_val_loss = average_val_loss
+            best_model_path = f"./models/checkpoint_epoch_{epoch + 1}_valloss_{average_val_loss}.ckpt"
             best_model_weights = copy.deepcopy(model.state_dict())
-            torch.save(best_model_weights, f"./models/checkpoint_epoch_{epoch + 1}_valloss_{average_val_loss}.ckpt")
+            torch.save(best_model_weights, best_model_path)
         scheduler.step(average_val_loss)
 
     print("Training finished.")
+    # Load the best model for testing
+    print(f'Testing the model {best_model_path}')
+    model = LinkPredictor()
+    model.load_state_dict(best_model_weights)
+    print('Model loaded')
+
+    results_dict = {}
+    gt = {}
+
+    for idx in tqdm(range(len(graph_generator_test))):
+        data_test = graph_generator_test.__getitem__(idx)
+        num_nodes = len(data_test.x)
+        g_input_test, g_gt_test = positive_sampling(data_test, torch.ones(len(data_test.x)), rule_dataset.rule_encoding)
+        all_possible_edges = list(itertools.product(range(num_nodes), repeat=2))
+        src = [i[0] for i in all_possible_edges]
+        dst = [i[1] for i in all_possible_edges]
+        edge_index_comb = torch.tensor([src,
+                                        dst], dtype=torch.long)
+        g_combination = Data(x=data_test.x, edge_index=edge_index_comb)
+        out = model(g_input_test.x, g_input_test.edge_index, g_combination.edge_index,
+                    g_input_test.edge_attr)
+
+        # decode the output
+        node_mapping = rule_dataset.node_mapping[graph_generator_test.userid2idx[idx]]
+        results_dict[graph_generator_test.userid2idx[idx]] = decode_output(g_input_test, all_possible_edges,
+                                                                           out, rule_dataset.rule_encoding,
+                                                                           node_mapping)
+        node_decoding = {v:k for k,v in node_mapping.items()}
+        rule_decoding = {v: k for k, v in rule_dataset.rule_encoding.items()}
+        gt[graph_generator_test.userid2idx[idx]] = (node_decoding[g_gt_test.edge_index[0].item()],
+                                                    node_decoding[g_gt_test.edge_index[1].item()],
+                                                    rule_decoding[g_gt_test.edge_attr[0].item()])
+    num_user = 0
+    ranks = []
+    for user_idx in results_dict.keys():
+        num_user += 1
+        r = [(r[0], r[1], r[2]) for r in results_dict[user_idx]]
+        ranks.append(find_rank(r, gt[user_idx]))
+    ranks = [1 / item for item in ranks if item is not None]
+    print(f"Score in the top-50 for {len(ranks)} out of {num_user}")
+    # Evaluate the performance on the test-set
+    print("Score: ", np.array(ranks).sum() / num_user)
+
